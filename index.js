@@ -88,7 +88,6 @@ function sleep(ms) {
 }
 function runTask(mqttUrl, options) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log(options);
         const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, options.clientId, options.username, options.password);
         while (true) {
             yield progress.incrementPromise(mqttService.publish(options.topic, options.qos, options.body));

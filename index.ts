@@ -94,7 +94,6 @@ function sleep(ms: number) {
 }
 
 async function runTask(mqttUrl: string, options: MyOptions) {
-  console.log(options);
   const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, options.clientId, options.username, options.password)
 
   while (true) {
