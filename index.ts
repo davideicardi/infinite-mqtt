@@ -4,6 +4,7 @@ import {ProgressLogger} from "progress-logger-js";
 import fs from "fs";
 import {MqttService} from "./MqttService";
 import { QoS } from "mqtt";
+import crypto from "crypto";
 const meow = require("meow");
 
 const progress = new ProgressLogger({
@@ -17,16 +18,16 @@ const cli = meow(`
 
   Options
     --topic, -t Topic, default to "test"
-    --body, -b Payload body to send, default to no body
+    --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
     --password, -p Password, optional
-    --client, -c Client id, optional
+    --clientId, -c Client id, default to a random value
     --qos, q QoS, options default 1
     --parallelism, -p  Parallel calls, default 1
     --sleep, -s  Sleep ms, default 0
 
 	Examples
-	  $ infinite-mqtt mqtt://broker.mqttdashboard.com:8000 -t davide/test/hello -b ./my-payload.json
+	  $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
 `,
 {
 
@@ -49,7 +50,7 @@ const cli = meow(`
     clientId: {
       type: 'string',
       alias: 'c',
-      default: ''
+      default: crypto.randomBytes(20).toString('hex')
     },
     username: {
       type: 'string',

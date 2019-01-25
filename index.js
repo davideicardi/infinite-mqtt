@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const progress_logger_js_1 = require("progress-logger-js");
 const fs_1 = __importDefault(require("fs"));
 const MqttService_1 = require("./MqttService");
+const crypto_1 = __importDefault(require("crypto"));
 const meow = require("meow");
 const progress = new progress_logger_js_1.ProgressLogger({
     label: "infinite-mqtt",
@@ -26,16 +27,16 @@ const cli = meow(`
 
   Options
     --topic, -t Topic, default to "test"
-    --body, -b Payload body to send, default to no body
+    --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
     --password, -p Password, optional
-    --client, -c Client id, optional
+    --clientId, -c Client id, default to a random value
     --qos, q QoS, options default 1
     --parallelism, -p  Parallel calls, default 1
     --sleep, -s  Sleep ms, default 0
 
 	Examples
-	  $ infinite-mqtt mqtt://broker.mqttdashboard.com:8000 -t davide/test/hello -b ./my-payload.json
+	  $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
 `, {
     flags: {
         parallelism: {
@@ -56,7 +57,7 @@ const cli = meow(`
         clientId: {
             type: 'string',
             alias: 'c',
-            default: ''
+            default: crypto_1.default.randomBytes(20).toString('hex')
         },
         username: {
             type: 'string',
