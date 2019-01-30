@@ -18,7 +18,7 @@ class MqttService {
             });
             let lastError;
             mqttClient.on("connect", () => {
-                console.log(`Mqtt ${config.brokerUrl} connect`);
+                console.log(`Mqtt ${config.brokerUrl} connect, clientId ${clientId}`);
                 resolve(new MqttService(mqttClient));
             });
             mqttClient.on("close", () => {

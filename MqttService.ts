@@ -16,7 +16,7 @@ export class MqttService {
             let lastError: Error | undefined; 
 
             mqttClient.on("connect", () => {
-                console.log(`Mqtt ${config.brokerUrl} connect`);
+                console.log(`Mqtt ${config.brokerUrl} connect, clientId ${clientId}`);
 
                 resolve(new MqttService(mqttClient));
             });

@@ -29,8 +29,9 @@ const cli = meow(`
     --topic, -t Topic, default to "test"
     --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
-    --password, -p Password, optional
+    --password, -w Password, optional
     --clientId, -c Client id, default to a random value
+    --unique,  Unique client id
     --qos, q QoS, options default 1
     --parallelism, -p  Parallel calls, default 1
     --sleep, -s  Sleep ms, default 0
@@ -59,6 +60,10 @@ const cli = meow(`
             alias: 'c',
             default: crypto_1.default.randomBytes(20).toString('hex')
         },
+        unique: {
+            type: 'boolean',
+            default: false
+        },
         username: {
             type: 'string',
             alias: 'u',
@@ -66,7 +71,7 @@ const cli = meow(`
         },
         password: {
             type: 'string',
-            alias: 'p',
+            alias: 'w',
             default: ''
         },
         qos: {
@@ -86,9 +91,13 @@ function sleep(ms) {
         setTimeout(() => resolve(), ms);
     });
 }
-function runTask(mqttUrl, options) {
+function runTask(taskId, mqttUrl, options) {
     return __awaiter(this, void 0, void 0, function* () {
-        const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, options.clientId, options.username, options.password);
+        let clientId = options.clientId;
+        if (options.unique) {
+            clientId += "-" + taskId;
+        }
+        const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, options.password);
         while (true) {
             yield progress.incrementPromise(mqttService.publish(options.topic, options.qos, options.body));
             if (options.sleep > 0) {
@@ -120,10 +129,11 @@ function run(mqttUrl, options) {
             username: options.username,
             qos: options.qos,
             brokerUrl: mqttUrl,
-            body: pBody
+            body: pBody,
+            unique: options.unique
         };
         const tasks = Array.from(Array(optionsParser.parallelism))
-            .map(() => runTask(mqttUrl, optionsParser));
+            .map((v, i) => runTask(i, mqttUrl, optionsParser));
         return tasks;
     });
 }

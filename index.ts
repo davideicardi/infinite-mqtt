@@ -20,8 +20,9 @@ const cli = meow(`
     --topic, -t Topic, default to "test"
     --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
-    --password, -p Password, optional
+    --password, -w Password, optional
     --clientId, -c Client id, default to a random value
+    --unique,  Unique client id
     --qos, q QoS, options default 1
     --parallelism, -p  Parallel calls, default 1
     --sleep, -s  Sleep ms, default 0
@@ -52,6 +53,10 @@ const cli = meow(`
       alias: 'c',
       default: crypto.randomBytes(20).toString('hex')
     },
+    unique: {
+      type: 'boolean',
+      default: false
+    },
     username: {
       type: 'string',
       alias: 'u',
@@ -59,7 +64,7 @@ const cli = meow(`
     },
     password: {
       type: 'string',
-      alias: 'p',
+      alias: 'w',
       default: ''
     },
     qos: {
@@ -85,6 +90,7 @@ interface MyOptions {
   body: Buffer;
   qos: QoS;
   brokerUrl: string;
+  unique: boolean;
 }
 
 function sleep(ms: number) {
@@ -93,8 +99,13 @@ function sleep(ms: number) {
   });
 }
 
-async function runTask(mqttUrl: string, options: MyOptions) {
-  const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, options.clientId, options.username, options.password)
+async function runTask(taskId: number, mqttUrl: string, options: MyOptions) {
+  let clientId = options.clientId;
+  if (options.unique) {
+    clientId += "-" + taskId;
+  }
+
+  const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, options.password)
 
   while (true) {
     await progress.incrementPromise(mqttService.publish(options.topic, options.qos, options.body));
@@ -129,11 +140,12 @@ async function run(mqttUrl: string, options: any) {
     username: options.username,
     qos: options.qos,
     brokerUrl: mqttUrl,
-    body: pBody
+    body: pBody,
+    unique: options.unique
   };
 
   const tasks = Array.from(Array(optionsParser.parallelism))
-  .map(() => runTask(mqttUrl, optionsParser));
+  .map((v, i) => runTask(i, mqttUrl, optionsParser));
 
   return tasks;
 }
