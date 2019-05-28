@@ -26,12 +26,12 @@ const cli = meow(`
 	  $ infinite-mqtt <url> [OPTIONS]
 
   Options
-    --topic, -t Topic, default to "test"
+    --topic, -t Topic, default to "test". "{CLIENTID}" placeholder will be replaced with the actual client id.
     --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
     --password, -w Password, optional
     --clientId, -c Client id, default to a random value
-    --unique,  Unique client id
+    --unique,  Unique client id, add the task index to the client id.
     --qos, q QoS, options default 1
     --parallelism, -p  Parallel calls, default 1
     --sleep, -s  Sleep ms, default 0
@@ -98,8 +98,9 @@ function runTask(taskId, mqttUrl, options) {
             clientId += "-" + taskId;
         }
         const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, options.password);
+        const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
         while (true) {
-            yield progress.incrementPromise(mqttService.publish(options.topic, options.qos, options.body));
+            yield progress.incrementPromise(mqttService.publish(mqttTopic, options.qos, options.body));
             if (options.sleep > 0) {
                 yield sleep(options.sleep);
             }
