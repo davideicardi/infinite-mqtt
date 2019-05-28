@@ -16,6 +16,7 @@ const progress_logger_js_1 = require("progress-logger-js");
 const fs_1 = __importDefault(require("fs"));
 const MqttService_1 = require("./MqttService");
 const crypto_1 = __importDefault(require("crypto"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const meow = require("meow");
 const progress = new progress_logger_js_1.ProgressLogger({
     label: "infinite-mqtt",
@@ -30,6 +31,7 @@ const cli = meow(`
     --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
     --password, -w Password, optional
+    --jwtSecret, -j Instead of a password you can pass a jwt secret as base 64. In this case a token will be created with the clientId as issuer.
     --clientId, -c Client id, default to a random value
     --unique,  Unique client id, add the task index to the client id.
     --qos, q QoS, options default 1
@@ -74,6 +76,11 @@ const cli = meow(`
             alias: 'w',
             default: ''
         },
+        jwtSecret: {
+            type: 'string',
+            alias: 'j',
+            default: ''
+        },
         qos: {
             type: 'number',
             alias: 'q',
@@ -97,7 +104,11 @@ function runTask(taskId, mqttUrl, options) {
         if (options.unique) {
             clientId += "-" + taskId;
         }
-        const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, options.password);
+        let mqttPassword = options.password;
+        if (options.jwtSecret) {
+            mqttPassword = jsonwebtoken_1.default.sign({}, Buffer.from(options.jwtSecret, "base64"), { issuer: clientId, expiresIn: "24h" });
+        }
+        const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, mqttPassword);
         const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
         while (true) {
             yield progress.incrementPromise(mqttService.publish(mqttTopic, options.qos, options.body));
@@ -127,6 +138,7 @@ function run(mqttUrl, options) {
             topic: options.topic,
             clientId: options.clientId,
             password: options.password,
+            jwtSecret: options.jwtSecret,
             username: options.username,
             qos: options.qos,
             brokerUrl: mqttUrl,

@@ -23,6 +23,7 @@
   "author": "Davide Icardi",
   "license": "ISC",
   "dependencies": {
+    "jsonwebtoken": "^8.5.1",
     "meow": "^5.0.0",
     "mqtt": "^2.18.3",
     "progress-logger-js": "^0.5.0"
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^10.12.18",
     "@types/node-fetch": "^2.1.4",
+    "@types/jsonwebtoken": "^8.3.2",
     "typescript": "^3.2.4"
   }
 }

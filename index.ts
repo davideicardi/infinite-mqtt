@@ -5,6 +5,7 @@ import fs from "fs";
 import {MqttService} from "./MqttService";
 import { QoS } from "mqtt";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 const meow = require("meow");
 
 const progress = new ProgressLogger({
@@ -21,6 +22,7 @@ const cli = meow(`
     --body, -b Payload body to send, it should point to a local file, default to no body
     --username, -u Username, optional
     --password, -w Password, optional
+    --jwtSecret, -j Instead of a password you can pass a jwt secret as base 64. In this case a token will be created with the clientId as issuer.
     --clientId, -c Client id, default to a random value
     --unique,  Unique client id, add the task index to the client id.
     --qos, q QoS, options default 1
@@ -67,6 +69,11 @@ const cli = meow(`
       alias: 'w',
       default: ''
     },
+    jwtSecret: {
+      type: 'string',
+      alias: 'j',
+      default: ''
+    },
     qos: {
       type: 'number',
       alias: 'q',
@@ -87,6 +94,7 @@ interface MyOptions {
   clientId: string;
   username: string;
   password: string;
+  jwtSecret: string;
   body: Buffer;
   qos: QoS;
   brokerUrl: string;
@@ -105,7 +113,12 @@ async function runTask(taskId: number, mqttUrl: string, options: MyOptions) {
     clientId += "-" + taskId;
   }
 
-  const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, options.password)
+  let mqttPassword = options.password;
+  if (options.jwtSecret) {
+    mqttPassword = jwt.sign({}, Buffer.from(options.jwtSecret, "base64"), { issuer: clientId, expiresIn: "24h" });
+  }
+
+  const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, mqttPassword);
 
   const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
 
@@ -139,6 +152,7 @@ async function run(mqttUrl: string, options: any) {
     topic: options.topic,
     clientId: options.clientId,
     password: options.password,
+    jwtSecret: options.jwtSecret,
     username: options.username,
     qos: options.qos,
     brokerUrl: mqttUrl,
