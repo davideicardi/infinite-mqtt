@@ -18,10 +18,7 @@ const MqttService_1 = require("./MqttService");
 const crypto_1 = __importDefault(require("crypto"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const meow = require("meow");
-const progress = new progress_logger_js_1.ProgressLogger({
-    label: "infinite-mqtt",
-    logInterval: 1000
-});
+let progress;
 const tasks = new Array();
 const appVersion = require("./package.json").version;
 const cli = meow(`
@@ -161,6 +158,10 @@ function run(mqttUrl, options) {
             const task = yield createTask(i, mqttUrl, optionsParser);
             tasks.push(task);
         }
+        progress = new progress_logger_js_1.ProgressLogger({
+            label: "infinite-mqtt",
+            logInterval: 1000
+        });
         const promises = tasks.map(t => runTask(t, optionsParser));
         return Promise.all(promises);
     });
@@ -171,9 +172,11 @@ run(cli.input[0], cli.flags)
     process.exit(1);
 });
 process.on('SIGINT', function () {
-    progress.end();
-    for (const err of progress.stats().errors) {
-        console.log(err);
+    if (progress) {
+        progress.end();
+        for (const err of progress.stats().errors) {
+            console.log(err);
+        }
     }
     tasks.map(t => t.mqttService.close());
     process.exit(0);

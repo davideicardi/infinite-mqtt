@@ -8,10 +8,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 const meow = require("meow");
 
-const progress = new ProgressLogger({
-  label: "infinite-mqtt",
-  logInterval: 1000
-});
+let progress: ProgressLogger;
 const tasks = new Array<TaskConnection>()
 
 const appVersion = require("./package.json").version;
@@ -180,6 +177,11 @@ async function run(mqttUrl: string, options: any): Promise<any> {
     tasks.push(task);
   }
 
+  progress = new ProgressLogger({
+    label: "infinite-mqtt",
+    logInterval: 1000
+  });
+
   const promises = tasks.map(t => runTask(t, optionsParser));
   return Promise.all(promises);
 }
@@ -191,9 +193,11 @@ run(cli.input[0], cli.flags)
   });
 
 process.on('SIGINT', function () {
-  progress.end();
-  for (const err of progress.stats().errors) {
-    console.log(err);
+  if (progress) {
+    progress.end();
+    for (const err of progress.stats().errors) {
+      console.log(err);
+    }
   }
 
   tasks.map(t => t.mqttService.close());
