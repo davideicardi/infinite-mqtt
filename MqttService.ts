@@ -22,7 +22,7 @@ export class MqttService {
 			});
 			mqttClient.on("close", () => {
 				console.log(`Mqtt ${config.brokerUrl} close`);
-				reject(lastError || new Error("Failed to connect"))
+				reject(lastError || new Error(`Failed to connect ${clientId}`))
 			});
 			mqttClient.on("offline", () => {
 				console.log(`Mqtt ${config.brokerUrl} offline`);

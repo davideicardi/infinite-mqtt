@@ -22,24 +22,27 @@ const progress = new progress_logger_js_1.ProgressLogger({
     label: "infinite-mqtt",
     logInterval: 1000
 });
+const tasks = new Array();
+const appVersion = require("./package.json").version;
 const cli = meow(`
-	Usage
-	  $ infinite-mqtt <url> [OPTIONS]
+Version ${appVersion}
+Usage
+  $ infinite-mqtt <url> [OPTIONS]
 
-  Options
-    --topic, -t Topic, default to "test". "{CLIENTID}" placeholder will be replaced with the actual client id.
-    --body, -b Payload body to send, it should point to a local file, default to no body
-    --username, -u Username, optional
-    --password, -w Password, optional
-    --jwtSecret, -j Instead of a password you can pass a jwt secret as base 64. In this case a token will be created with the clientId as issuer.
-    --clientId, -c Client id, default to a random value
-    --unique,  Unique client id, add the task index to the client id.
-    --qos, q QoS, options default 1
-    --parallelism, -p  Parallel calls, default 1
-    --sleep, -s  Sleep ms, default 0
+Options
+  --topic, -t Topic, default to "test". "{CLIENTID}" placeholder will be replaced with the actual client id.
+  --body, -b Payload body to send, it should point to a local file, default to no body
+  --username, -u Username, optional
+  --password, -w Password, optional
+  --jwtSecret, -j Instead of a password you can pass a jwt secret as base 64. In this case a token will be created with the clientId as issuer.
+  --clientId, -c Client id, default to a random value
+  --unique,  Unique client id, add the task index to the client id.
+  --qos, q QoS, options default 1
+  --parallelism, -p  Parallel calls, default 1
+  --sleep, -s  Sleep ms, default 0
 
-	Examples
-	  $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
+Examples
+  $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
 `, {
     flags: {
         parallelism: {
@@ -98,7 +101,7 @@ function sleep(ms) {
         setTimeout(() => resolve(), ms);
     });
 }
-function runTask(taskId, mqttUrl, options) {
+function createTask(taskId, mqttUrl, options) {
     return __awaiter(this, void 0, void 0, function* () {
         let clientId = options.clientId;
         if (options.unique) {
@@ -110,8 +113,16 @@ function runTask(taskId, mqttUrl, options) {
         }
         const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, mqttPassword);
         const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
+        return {
+            mqttService,
+            mqttTopic
+        };
+    });
+}
+function runTask(task, options) {
+    return __awaiter(this, void 0, void 0, function* () {
         while (true) {
-            yield progress.incrementPromise(mqttService.publish(mqttTopic, options.qos, options.body));
+            yield progress.incrementPromise(task.mqttService.publish(task.mqttTopic, options.qos, options.body));
             if (options.sleep > 0) {
                 yield sleep(options.sleep);
             }
@@ -145,17 +156,25 @@ function run(mqttUrl, options) {
             body: pBody,
             unique: options.unique
         };
-        const tasks = Array.from(Array(optionsParser.parallelism))
-            .map((v, i) => runTask(i, mqttUrl, optionsParser));
-        return tasks;
+        tasks.length = 0;
+        for (let i = 0; i < optionsParser.parallelism; i++) {
+            const task = yield createTask(i, mqttUrl, optionsParser);
+            tasks.push(task);
+        }
+        const promises = tasks.map(t => runTask(t, optionsParser));
+        return Promise.all(promises);
     });
 }
 run(cli.input[0], cli.flags)
-    .catch(console.error.bind(console));
+    .catch((err) => {
+    console.error(err);
+    process.exit(1);
+});
 process.on('SIGINT', function () {
     progress.end();
     for (const err of progress.stats().errors) {
         console.log(err);
     }
-    process.exit();
+    tasks.map(t => t.mqttService.close());
+    process.exit(0);
 });
