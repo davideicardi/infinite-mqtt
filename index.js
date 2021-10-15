@@ -1,27 +1,15 @@
 #!/usr/bin/env node
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const progress_logger_js_1 = require("progress-logger-js");
-const fs_1 = __importDefault(require("fs"));
-const MqttService_1 = require("./MqttService");
-const crypto_1 = __importDefault(require("crypto"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const meow = require("meow");
+import { ProgressLogger } from "progress-logger-js";
+import fs from "fs";
+import { MqttService } from "./MqttService.js";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import meow from "meow";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 let progress;
 const tasks = new Array();
-const appVersion = require("./package.json").version;
+const appVersion = loadPackageJson().version;
 const cli = meow(`
 Version ${appVersion}
 Usage
@@ -42,6 +30,7 @@ Options
 Examples
   $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
 `, {
+    importMeta: import.meta,
     flags: {
         parallelism: {
             type: 'string',
@@ -61,7 +50,7 @@ Examples
         clientId: {
             type: 'string',
             alias: 'c',
-            default: crypto_1.default.randomBytes(20).toString('hex')
+            default: crypto.randomBytes(20).toString('hex')
         },
         unique: {
             type: 'boolean',
@@ -90,7 +79,7 @@ Examples
         body: {
             type: 'string',
             alias: 'b',
-            default: undefined
+            default: ""
         }
     }
 });
@@ -99,73 +88,67 @@ function sleep(ms) {
         setTimeout(() => resolve(), ms);
     });
 }
-function createTask(taskId, mqttUrl, options) {
-    return __awaiter(this, void 0, void 0, function* () {
-        let clientId = options.clientId;
-        if (options.unique) {
-            clientId += "-" + taskId;
-        }
-        let mqttPassword = options.password;
-        if (options.jwtSecret) {
-            mqttPassword = jsonwebtoken_1.default.sign({}, Buffer.from(options.jwtSecret, "base64"), { issuer: clientId, expiresIn: "24h" });
-        }
-        const mqttService = yield MqttService_1.MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, mqttPassword);
-        const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
-        return {
-            mqttService,
-            mqttTopic
-        };
-    });
+async function createTask(taskId, mqttUrl, options) {
+    let clientId = options.clientId;
+    if (options.unique) {
+        clientId += "-" + taskId;
+    }
+    let mqttPassword = options.password;
+    if (options.jwtSecret) {
+        mqttPassword = jwt.sign({}, Buffer.from(options.jwtSecret, "base64"), { issuer: clientId, expiresIn: "24h" });
+    }
+    const mqttService = await MqttService.connect({ brokerUrl: mqttUrl }, clientId, options.username, mqttPassword);
+    const mqttTopic = options.topic.replace(/\{CLIENTID\}/, clientId);
+    return {
+        mqttService,
+        mqttTopic
+    };
 }
-function runTask(task, options) {
-    return __awaiter(this, void 0, void 0, function* () {
-        while (true) {
-            yield progress.incrementPromise(task.mqttService.publish(task.mqttTopic, options.qos, options.body));
-            if (options.sleep > 0) {
-                yield sleep(options.sleep);
-            }
+async function runTask(task, options) {
+    while (true) {
+        await progress.incrementPromise(task.mqttService.publish(task.mqttTopic, options.qos, options.body));
+        if (options.sleep > 0) {
+            await sleep(options.sleep);
         }
-    });
+    }
 }
-function run(mqttUrl, options) {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (!mqttUrl) {
-            throw new Error("url not provided");
-        }
-        const pSleep = parseInt(options.sleep, 10);
-        if (isNaN(pSleep)) {
-            throw new Error("Invalid sleep parameter");
-        }
-        const pParallelism = parseInt(options.parallelism, 10);
-        if (isNaN(pParallelism)) {
-            throw new Error("Invalid parallelism parameter");
-        }
-        const pBody = options.body && fs_1.default.readFileSync(options.body);
-        const optionsParser = {
-            sleep: pSleep,
-            parallelism: pParallelism,
-            topic: options.topic,
-            clientId: options.clientId,
-            password: options.password,
-            jwtSecret: options.jwtSecret,
-            username: options.username,
-            qos: options.qos,
-            brokerUrl: mqttUrl,
-            body: pBody,
-            unique: options.unique
-        };
-        tasks.length = 0;
-        for (let i = 0; i < optionsParser.parallelism; i++) {
-            const task = yield createTask(i, mqttUrl, optionsParser);
-            tasks.push(task);
-        }
-        progress = new progress_logger_js_1.ProgressLogger({
-            label: "infinite-mqtt",
-            logInterval: 1000
-        });
-        const promises = tasks.map(t => runTask(t, optionsParser));
-        return Promise.all(promises);
+async function run(mqttUrl, options) {
+    if (!mqttUrl) {
+        throw new Error("url not provided");
+    }
+    const pSleep = parseInt(options.sleep, 10);
+    if (isNaN(pSleep)) {
+        throw new Error("Invalid sleep parameter");
+    }
+    const pParallelism = parseInt(options.parallelism, 10);
+    if (isNaN(pParallelism)) {
+        throw new Error("Invalid parallelism parameter");
+    }
+    const pBody = options.body && fs.readFileSync(options.body);
+    const optionsParser = {
+        sleep: pSleep,
+        parallelism: pParallelism,
+        topic: options.topic,
+        clientId: options.clientId,
+        password: options.password,
+        jwtSecret: options.jwtSecret,
+        username: options.username,
+        qos: options.qos,
+        brokerUrl: mqttUrl,
+        body: pBody,
+        unique: options.unique
+    };
+    tasks.length = 0;
+    for (let i = 0; i < optionsParser.parallelism; i++) {
+        const task = await createTask(i, mqttUrl, optionsParser);
+        tasks.push(task);
+    }
+    progress = new ProgressLogger({
+        label: "infinite-mqtt",
+        logInterval: 1000
     });
+    const promises = tasks.map(t => runTask(t, optionsParser));
+    return Promise.all(promises);
 }
 run(cli.input[0], cli.flags)
     .catch((err) => {
@@ -182,3 +165,9 @@ process.on('SIGINT', function () {
     tasks.map(t => t.mqttService.close());
     process.exit(0);
 });
+function loadPackageJson() {
+    // in the future we can use:
+    // import * as pack from './package.json';
+    const pack = require("./package.json");
+    return pack;
+}

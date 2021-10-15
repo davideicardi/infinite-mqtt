@@ -1,16 +1,11 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const mqtt_1 = __importDefault(require("mqtt"));
-class MqttService {
+import mqtt from "mqtt";
+export class MqttService {
     constructor(mqttClient) {
         this.mqttClient = mqttClient;
     }
     static connect(config, clientId, username, password) {
         return new Promise((resolve, reject) => {
-            const mqttClient = mqtt_1.default.connect(config.brokerUrl, {
+            const mqttClient = mqtt.connect(config.brokerUrl, {
                 clientId: clientId,
                 username: username,
                 password: password,
@@ -58,4 +53,3 @@ class MqttService {
         });
     }
 }
-exports.MqttService = MqttService;

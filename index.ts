@@ -2,16 +2,18 @@
 
 import { ProgressLogger } from "progress-logger-js";
 import fs from "fs";
-import { MqttService } from "./MqttService";
+import { MqttService } from "./MqttService.js";
 import { QoS } from "mqtt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-const meow = require("meow");
+import meow from "meow";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
 let progress: ProgressLogger;
 const tasks = new Array<TaskConnection>()
 
-const appVersion = require("./package.json").version;
+const appVersion = loadPackageJson().version;
 const cli = meow(`
 Version ${appVersion}
 Usage
@@ -33,7 +35,7 @@ Examples
   $ infinite-mqtt mqtt://broker.mqttdashboard.com:1883 -t davide/test/hello -b ./my-payload.json -s 1000
 `,
   {
-
+    importMeta: import.meta,
     flags: {
       parallelism: {
         type: 'string',
@@ -82,7 +84,7 @@ Examples
       body: {
         type: 'string',
         alias: 'b',
-        default: undefined
+        default: ""
       }
     }
   });
@@ -102,7 +104,7 @@ interface MyOptions {
 }
 
 function sleep(ms: number) {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     setTimeout(() => resolve(), ms);
   });
 }
@@ -204,3 +206,11 @@ process.on('SIGINT', function () {
 
   process.exit(0);
 });
+
+
+function loadPackageJson() {
+  // in the future we can use:
+  // import * as pack from './package.json';
+  const pack = require("./package.json");
+  return pack;
+}

@@ -56,7 +56,7 @@ export class MqttService {
 	}
 
 	close() {
-		return new Promise((resolve) => {
+		return new Promise<void>((resolve) => {
 			this.mqttClient.end(false, () => {
 				resolve();
 			});
