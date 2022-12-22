@@ -24,7 +24,7 @@
   "author": "Davide Icardi",
   "license": "ISC",
   "dependencies": {
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "meow": "^10.1.1",
     "mqtt": "^4.2.8",
     "progress-logger-js": "^0.5.1"
